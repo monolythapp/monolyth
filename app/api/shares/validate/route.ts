@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import crypto from "crypto";
+import crypto from "node:crypto";
 
 export async function POST(req: NextRequest) {
   try {
     const { shareId, passcode } = await req.json();
-
-    if (!shareId) {
-      return NextResponse.json({ error: "Missing shareId" }, { status: 400 });
+    if (!shareId || typeof passcode !== "string") {
+      return NextResponse.json({ error: "Missing shareId or passcode" }, { status: 400 });
     }
 
     const supabase = createClient(
@@ -21,39 +20,20 @@ export async function POST(req: NextRequest) {
       .eq("id", shareId)
       .single();
 
-    if (error || !share) {
-      return NextResponse.json({ error: "Share not found" }, { status: 404 });
-    }
+    if (error || !share) return NextResponse.json({ error: "Share not found" }, { status: 404 });
+    if (!share.passcode_required) return NextResponse.json({ ok: true, note: "No passcode required" });
 
-    // If passcode not required, mark as validated anyway
-    if (!share.passcode_required) {
-      const res = NextResponse.json({ ok: true, validated: true });
-      res.cookies.set(`share_${shareId}`, "ok", {
-        httpOnly: true,
-        sameSite: "lax",
-        secure: true,
-        path: "/",
-        maxAge: 60 * 60 * 24, // 1 day
-      });
-      return res;
-    }
-
-    if (!passcode || typeof passcode !== "string") {
-      return NextResponse.json({ error: "Passcode required" }, { status: 401 });
-    }
-
-    const sha = crypto.createHash("sha256").update(passcode).digest("hex");
+    const sha = crypto.createHash("sha256").update(passcode, "utf8").digest("hex");
     if (sha !== share.passcode_sha256) {
       return NextResponse.json({ error: "Invalid passcode" }, { status: 401 });
     }
 
-    const res = NextResponse.json({ ok: true, validated: true });
+    const res = NextResponse.json({ ok: true });
     res.cookies.set(`share_${shareId}`, "ok", {
       httpOnly: true,
       sameSite: "lax",
-      secure: true,
       path: "/",
-      maxAge: 60 * 60 * 24,
+      maxAge: 60 * 60,
     });
     return res;
   } catch (e: any) {

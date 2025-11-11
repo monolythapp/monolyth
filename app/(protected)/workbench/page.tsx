@@ -1,7 +1,6 @@
 "use client";
 
- 
-
+import DriveRecent from "@/components/workbench/DriveRecent"; // ← NEW
 import { useCallback, useEffect, useState, useTransition } from "react";
 
 import { getGoogleAccessToken } from "@/lib/google-token";
@@ -19,19 +18,19 @@ type Row = {
 
 type Analysis =
   | {
-      ok: true;
-      triage?: {
-        priority?: "low" | "medium" | "high";
-        label?: string;
-        suggestedAction?: string;
-      };
-      analysis?: {
-        summary?: string;
-        entities?: string[];
-        dates?: string[];
-      };
-      raw?: unknown;
-    }
+    ok: true;
+    triage?: {
+      priority?: "low" | "medium" | "high";
+      label?: string;
+      suggestedAction?: string;
+    };
+    analysis?: {
+      summary?: string;
+      entities?: string[];
+      dates?: string[];
+    };
+    raw?: unknown;
+  }
   | { ok: false; reason?: string; raw?: unknown };
 
 export default function WorkbenchPage() {
@@ -41,14 +40,11 @@ export default function WorkbenchPage() {
   const [result, setResult] = useState<Analysis | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  /**
-   * Load a small unified inbox (Week-1: mocked + token check).
-   * In Week-2 we’ll fetch real provider data server-side.
-   */
+  // Load a small unified inbox (mock, Week-1/2 demo)
   const load = useCallback(async () => {
     setLoading(true);
 
-    // Check whether Google OAuth is connected (for visual signal only)
+    // Visual signal only
     let driveConnected = false;
     try {
       const token = await getGoogleAccessToken("drive");
@@ -57,7 +53,6 @@ export default function WorkbenchPage() {
       driveConnected = false;
     }
 
-    // Seed a tiny sample table (stable demo for Week-1)
     const now = new Date();
     const fmt = (d: Date) =>
       new Intl.DateTimeFormat(undefined, {
@@ -102,7 +97,6 @@ export default function WorkbenchPage() {
     setLoading(false);
   }, []);
 
-  // Schedule the first load via setTimeout to avoid "set-state in effect" warning.
   useEffect(() => {
     let cancelled = false;
     const t = setTimeout(() => {
@@ -132,14 +126,17 @@ export default function WorkbenchPage() {
 
   return (
     <div style={{ padding: 24, fontFamily: "system-ui, sans-serif" }}>
-      <header
-        style={{ display: "flex", alignItems: "center", marginBottom: 16 }}
-      >
+      <header style={{ display: "flex", alignItems: "center", marginBottom: 16 }}>
         <h1 style={{ fontSize: "1.5rem", fontWeight: 600 }}>Workbench</h1>
         <div style={{ marginLeft: "auto", opacity: 0.7 }}>
           {loading ? "Loading…" : `${rows.length} items`}
         </div>
       </header>
+
+      {/* Drive — Recent (RO) panel */}
+      <section style={{ marginBottom: 20 }}>
+        <DriveRecent />
+      </section>
 
       {/* Table */}
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -203,7 +200,7 @@ export default function WorkbenchPage() {
         </tbody>
       </table>
 
-      {/* Analyze drawer (Week-1 simple card) */}
+      {/* Analyze drawer */}
       {sel && (
         <section
           style={{
@@ -215,9 +212,7 @@ export default function WorkbenchPage() {
           }}
         >
           <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
-            <h2 style={{ fontSize: "1.1rem", fontWeight: 600, margin: 0 }}>
-              Analyze
-            </h2>
+            <h2 style={{ fontSize: "1.1rem", fontWeight: 600, margin: 0 }}>Analyze</h2>
             <div style={{ opacity: 0.7, fontSize: 12 }}>
               {sel.source} • {sel.kind || "—"}
             </div>
@@ -265,30 +260,22 @@ export default function WorkbenchPage() {
               </div>
 
               <div>
-                <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>
-                  Summary
-                </div>
+                <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>Summary</div>
                 <div>{result.analysis?.summary ?? "—"}</div>
               </div>
 
               <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
                 <div>
-                  <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>
-                    Entities
-                  </div>
+                  <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>Entities</div>
                   <ul style={{ margin: 0, paddingLeft: 18 }}>
                     {(result.analysis?.entities ?? []).map((e, i) => (
                       <li key={i}>{e}</li>
                     ))}
-                    {(result.analysis?.entities?.length ?? 0) === 0 && (
-                      <li>—</li>
-                    )}
+                    {(result.analysis?.entities?.length ?? 0) === 0 && <li>—</li>}
                   </ul>
                 </div>
                 <div>
-                  <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>
-                    Dates
-                  </div>
+                  <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>Dates</div>
                   <ul style={{ margin: 0, paddingLeft: 18 }}>
                     {(result.analysis?.dates ?? []).map((d, i) => (
                       <li key={i}>{d}</li>

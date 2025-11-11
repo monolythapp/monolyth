@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
+import { cookies } from "next/headers";
+import { NextRequest, NextResponse } from "next/server";
 import fs from "node:fs/promises";
 import path from "node:path";
 
@@ -24,8 +24,9 @@ export async function POST(req: NextRequest) {
 
     // 2) Passcode check
     if (share.passcode_required) {
-      const ok = cookies().get(`share_${shareId}`)?.value === "ok";
-      if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      const cookieStore = await cookies();
+      const ok = cookieStore.get(`share_${shareId}`)?.value === "ok";
+      if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     // 3) Resolve version

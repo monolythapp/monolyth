@@ -1,36 +1,58 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 type Options = {
-  onTop?: () => void;
-  onBottom?: () => void;
-  onScroll?: (y: number) => void;
-  offset?: number; // px tolerance from top/bottom
+  /** Scroll thresholds to emit events at (0–1) */
+  thresholds?: number[];
+  /** Optional share id when using object form */
+  shareId?: string;
 };
 
 /**
- * Simple scroll observer for share pages.
- * Fires onTop/onBottom with a small offset tolerance and always calls onScroll with scrollY.
+ * Logs "share_open" once on mount, then "share_scroll" at given thresholds.
+ * Call as:
+ *   useScrollEvents("share_123")            // string form
+ *   useScrollEvents({ shareId: "share_123" }) // object form
  */
-export default function useScrollEvents(opts: Options = {}) {
-  const { onTop, onBottom, onScroll, offset = 0 } = opts;
+export default function useScrollEvents(arg?: string | Options) {
+  const shareId = typeof arg === "string" ? arg : arg?.shareId;
+  const thresholds = (typeof arg === "object" && arg?.thresholds) || [0.33, 0.66, 0.95];
+
+  const sent = useRef<Record<number, boolean>>({});
+
+  // Without id, do nothing
+  useEffect(() => {
+    if (!shareId) return;
+    void fetch("/api/events/log", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "share_open", shareId }),
+    });
+  }, [shareId]);
 
   useEffect(() => {
-    function handler() {
-      const y = window.scrollY || 0;
-      const doc = document.documentElement;
-      const max = Math.max(0, doc.scrollHeight - window.innerHeight);
+    if (!shareId) return;
 
-      if (onScroll) onScroll(y);
-      if (onTop && y <= offset) onTop();
-      if (onBottom && y >= Math.max(0, max - offset)) onBottom();
-    }
+    const onScroll = () => {
+      const el = document.documentElement;
+      const total = el.scrollHeight - el.clientHeight;
+      const ratio = total <= 0 ? 1 : el.scrollTop / total;
 
-    window.addEventListener("scroll", handler, { passive: true });
-    // fire once on mount
-    handler();
+      thresholds.forEach((t) => {
+        if (ratio >= t && !sent.current[t]) {
+          sent.current[t] = true;
+          void fetch("/api/events/log", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ type: "share_scroll", shareId, at: t }),
+          });
+        }
+      });
+    };
 
-    return () => window.removeEventListener("scroll", handler);
-  }, [onTop, onBottom, onScroll, offset]);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [shareId, thresholds]);
 }

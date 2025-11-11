@@ -88,7 +88,7 @@ REQUIREMENTS:
     if (!parsed.triage || !parsed.analysis) throw new Error("missing keys");
     return { error: null, triage: parsed.triage, analysis: parsed.analysis };
   } catch {
-  // Week-1: swallow error; caller shows a friendly message
-  return { ok: false as const, reason: "ai_error" };
-}
+    // Week-1: swallow error; caller shows a friendly message
+    return { error: "ai_error", triage: null, analysis: null } as const;
+  }
 }

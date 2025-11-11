@@ -1,46 +1,47 @@
-import { supabaseServer } from "@/lib/supabase-server";
+// app/share/[id]/page.tsx
+import ShareClient from "./ShareClient";
 
-type Params = { params: Promise<{ id: string }> };
+export const dynamic = "force-dynamic"; // always fetch fresh
 
-export default async function ShareViewer({ params }: Params) {
-  const { id } = await params;
-  const sb = supabaseServer();
+type Params = Promise<{ id: string }>;
 
-  // Try to load the share row
-  const { data: s } = await sb
-    .from("shares")
-    .select("id, doc_id, access, passcode_hash, created_at")
-    .eq("id", id)
-    .single();
+async function fetchShare(shareId: string): Promise<{ title: string; html?: string; markdown?: string }> {
+  const base = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+  const url = `${base}/api/shares/render`;
 
-  // Try to load the latest version (optional)
-  let latest: { number: number } | null = null;
-  if (s?.doc_id) {
-    const { data: v } = await sb
-      .from("versions")
-      .select("number")
-      .eq("doc_id", s.doc_id)
-      .order("number", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    latest = v ?? null;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ shareId }),
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    throw new Error(`Render failed (${res.status})`);
   }
 
-  return (
-    <div style={{ fontFamily: "system-ui, sans-serif", padding: 24, maxWidth: 960, margin: "0 auto" }}>
-      <h1>Shared Document</h1>
-      <div style={{ opacity: 0.7, fontSize: 12 }}>Share ID: <code>{id}</code></div>
+  const data = await res.json().catch(() => ({} as any));
 
-      {!s && <div style={{ marginTop: 16, color: "#B00020" }}>Not found</div>}
+  const title = data?.title ?? "Shared Document";
+  const html = typeof data?.html === "string" ? data.html : undefined;
+  const markdown = typeof data?.markdown === "string" ? data.markdown : undefined;
 
-      {s && (
-        <div style={{ marginTop: 16 }}>
-          <div>Latest version: <strong>{latest ? `v${latest.number}` : "—"}</strong></div>
-          <div style={{ marginTop: 12, opacity: 0.8 }}>
-            (Public viewer stub — Week-2 will render the actual content with analytics.)
-          </div>
-        </div>
-      )}
-    </div>
-  );
+  if (!html && !markdown) {
+    throw new Error("No content returned from /api/shares/render");
+  }
+
+  return { title, html, markdown };
+}
+
+export default async function Page({ params }: { params: Params }) {
+  // ⬇️ Next.js 16: params is a Promise; unwrap it
+  const { id: shareId } = await params;
+
+  const { title, html, markdown } = await fetchShare(shareId);
+
+  // Pass either html OR markdown to the client component
+  if (html) {
+    return <ShareClient shareId={shareId} title={title} html={html} />;
+  }
+  return <ShareClient shareId={shareId} title={title} markdown={markdown!} />;
 }

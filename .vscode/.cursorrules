@@ -1,0 +1,26 @@
+# Monolyth repo rules
+- Do not create duplicate routes.
+- API routes live under app/api/**.
+- Public viewer is app/share/[id] (singular).
+- Shares API is app/api/shares/* (plural).
+- Events API is app/api/events/* (singular).
+- DB columns: versions.doc_id; events.event_type (NOT NULL).
+- Next.js 16: await params (params is a Promise).
+- Prefer full-file replacements; keep styling minimal and consistent.
+
+# If the misplaced file exists, move it to root:
+if (Test-Path .husky\.cursorrules) { git mv .husky\.cursorrules .cursorrules }
+
+# If it doesn’t exist there (or git mv fails), recreate it at root:
+if (!(Test-Path .cursorrules)) {
+@'
+- API routes under app/api/**
+- Public viewer: app/share/[id] (singular)
+- Shares API: app/api/shares/* (plural)
+- Events API: app/api/events/*
+- DB columns: versions.doc_id; events.event_type (NOT NULL)
+- Next.js 16: params is a Promise → await in dynamic routes
+- Prefer full-file replacements
+'@ | Out-File -Encoding utf8 .cursorrules
+git add .cursorrules
+}

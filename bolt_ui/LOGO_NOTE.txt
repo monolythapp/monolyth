@@ -1,0 +1,1 @@
+NOTE: The Monologo_horizontal-transp.png file needs to be manually placed in the public/ folder

@@ -1,5 +1,7 @@
 import type { GenOptions, Triage } from "@/lib/ai";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { getRouteAuthContext } from "@/lib/auth/route-auth";
+import { logServerEvent, logServerError } from "@/lib/telemetry-server";
 import OpenAI from "openai";
 
 type GeneratePayload = {
@@ -62,8 +64,35 @@ function buildMessages(prompt: string, options: GenOptions = {}): ChatMessage[] 
   ];
 }
 
-export async function POST(request: Request) {
+export async function POST(req: NextRequest) {
+  const startedAt = performance.now();
+  
+  // Get auth context
+  let auth: { userId: string | null; orgId: string | null } = { userId: null, orgId: null };
+  try {
+    const authContext = await getRouteAuthContext(req);
+    auth = {
+      userId: authContext.userId,
+      orgId: authContext.orgId,
+    };
+  } catch {
+    // Continue without auth for telemetry
+  }
+
   if (!process.env.OPENAI_API_KEY) {
+    const durationMs = performance.now() - startedAt;
+    logServerError({
+      event: "builder_generate",
+      userId: auth.userId,
+      orgId: auth.orgId,
+      source: "builder",
+      route: "/api/ai/generate",
+      durationMs,
+      properties: {
+        status: "error",
+      },
+      error: new Error("Missing OpenAI configuration"),
+    });
     return NextResponse.json(
       { error: "Missing OpenAI configuration" },
       { status: 500 }
@@ -72,12 +101,38 @@ export async function POST(request: Request) {
 
   let payloadRaw: unknown;
   try {
-    payloadRaw = await request.json();
+    payloadRaw = await req.json();
   } catch {
+    const durationMs = performance.now() - startedAt;
+    logServerError({
+      event: "builder_generate",
+      userId: auth.userId,
+      orgId: auth.orgId,
+      source: "builder",
+      route: "/api/ai/generate",
+      durationMs,
+      properties: {
+        status: "error",
+      },
+      error: new Error("Invalid JSON body"),
+    });
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
   if (!isGeneratePayload(payloadRaw)) {
+    const durationMs = performance.now() - startedAt;
+    logServerError({
+      event: "builder_generate",
+      userId: auth.userId,
+      orgId: auth.orgId,
+      source: "builder",
+      route: "/api/ai/generate",
+      durationMs,
+      properties: {
+        status: "error",
+      },
+      error: new Error("Request must include a prompt string"),
+    });
     return NextResponse.json(
       { error: "Request must include a prompt string." },
       { status: 400 }
@@ -87,6 +142,19 @@ export async function POST(request: Request) {
   const { prompt, options } = payloadRaw;
   const normalizedPrompt = prompt.trim();
   if (!normalizedPrompt) {
+    const durationMs = performance.now() - startedAt;
+    logServerError({
+      event: "builder_generate",
+      userId: auth.userId,
+      orgId: auth.orgId,
+      source: "builder",
+      route: "/api/ai/generate",
+      durationMs,
+      properties: {
+        status: "error",
+      },
+      error: new Error("Prompt cannot be empty"),
+    });
     return NextResponse.json({ error: "Prompt cannot be empty." }, { status: 400 });
   }
 
@@ -102,12 +170,56 @@ export async function POST(request: Request) {
 
     const content = completion.choices[0]?.message?.content?.trim();
     if (!content) {
+      const durationMs = performance.now() - startedAt;
+      logServerError({
+        event: "builder_generate",
+        userId: auth.userId,
+        orgId: auth.orgId,
+        source: "builder",
+        route: "/api/ai/generate",
+        durationMs,
+        properties: {
+          status: "error",
+        },
+        error: new Error("Empty AI response"),
+      });
       return NextResponse.json({ error: "Empty AI response" }, { status: 502 });
     }
 
+    const durationMs = performance.now() - startedAt;
+    logServerEvent({
+      event: "builder_generate",
+      userId: auth.userId,
+      orgId: auth.orgId,
+      source: "builder",
+      route: "/api/ai/generate",
+      durationMs,
+      properties: {
+        status: "ok",
+        model: "gpt-4o-mini",
+        content_length: content.length,
+        has_template: !!options?.templateId,
+      },
+    });
+
     return NextResponse.json({ content });
   } catch (error) {
+    const durationMs = performance.now() - startedAt;
     const message = error instanceof Error ? error.message : "AI generation failed";
+    
+    logServerError({
+      event: "builder_generate",
+      userId: auth.userId,
+      orgId: auth.orgId,
+      source: "builder",
+      route: "/api/ai/generate",
+      durationMs,
+      properties: {
+        status: "error",
+      },
+      error,
+    });
+    
     return NextResponse.json({ error: message }, { status: 502 });
   }
 }

@@ -1,75 +1,45 @@
-import fs from "node:fs/promises";
-import path from "node:path";
-import BuilderClient from "@/components/builder/BuilderClient";
-import { TEMPLATES, type TemplateDef } from "@/data/templates";
-import { supabaseServer } from "@/lib/supabase-server";
+// Manual test:
+// 1) Visit /builder: page should load without freezing.
+// 2) Select a template, add clauses, instructions, generate Version 1, then click "Save to Vault":
+//    - On success: toast "Saved to Vault" and doc appears in Vault/Workbench.
+//    - On failure: toast error and console.error("[builder] Save to Vault error", ...), but no page crash.
 
-type BuilderTemplate = TemplateDef;
+import React from "react";
+import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { BuilderClient } from "@/components/builder/builder-client";
 
-type InitialDoc = {
-  id: string;
-  title: string;
-  templateId?: string;
-  content: string;
-  versionNumber?: number;
-};
+export default async function BuilderPage() {
+  const supabase = createServerSupabaseClient();
 
-export default async function Page({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
-  const sp = await searchParams;
-  const docId = Array.isArray(sp?.docId) ? sp?.docId[0] : (sp?.docId as string | undefined);
-  const templates = TEMPLATES as BuilderTemplate[];
-  const initialDoc = docId ? await loadInitialDoc(docId) : null;
+  const { data: templatesData, error: templatesError } = await supabase
+    .from("template")
+    .select(
+      "id, name, category, description, default_prompt, org_id, is_active",
+    )
+    .eq("is_active", true)
+    .order("category", { ascending: true })
+    .order("name", { ascending: true });
 
-  return <BuilderClient templates={templates} initialDoc={initialDoc} />;
-}
-
-async function loadInitialDoc(docId: string): Promise<InitialDoc | null> {
-  const supabase = supabaseServer();
-  const { data: doc, error: docError } = await supabase
-    .from("documents")
-    .select("id, title, template_id")
-    .eq("id", docId)
-    .maybeSingle();
-
-  if (docError || !doc) {
-    return null;
+  if (templatesError) {
+    console.error("Failed to load templates for Builder", templatesError);
   }
 
-  const { data: version, error: versionError } = await supabase
-    .from("versions")
-    .select("number, content_md, content_url")
-    .eq("doc_id", docId)
-    .order("number", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const { data: clausesData, error: clausesError } = await supabase
+    .from("clause")
+    .select("id, name, category, body, org_id")
+    .order("category", { ascending: true })
+    .order("name", { ascending: true });
 
-  if (versionError || !version) {
-    return null;
+  if (clausesError) {
+    console.error("Failed to load clauses for Builder", clausesError);
   }
 
-  let content = version.content_md ?? "";
-  if (!content && version.content_url) {
-    const filePath = path.join(
-      process.cwd(),
-      "public",
-      version.content_url.replace(/^\/+/, "")
-    );
-    try {
-      content = await fs.readFile(filePath, "utf8");
-    } catch {
-      content = "";
-    }
-  }
+  const templates = templatesData ?? [];
+  const clauses = clausesData ?? [];
 
-  return {
-    id: doc.id as string,
-    title: doc.title as string,
-    templateId: (doc as { template_id?: string | null }).template_id ?? undefined,
-    content,
-    versionNumber: version.number ?? 1,
-  };
+  return (
+    <div className="h-full flex flex-col">
+      <BuilderClient templates={templates} clauses={clauses} />
+    </div>
+  );
 }

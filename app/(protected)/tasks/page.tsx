@@ -2,12 +2,34 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase-browser";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  CheckSquare,
+  Plus,
+  Calendar,
+  User,
+  FileText,
+  Filter,
+  Clock,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
 type Task = {
   id: string;
   title: string;
   status: "open" | "done" | "archived";
   due_at: string | null;
+};
+
+const priorityColors = {
+  high: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100",
+  medium: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-100",
+  low: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100",
 };
 
 export default function TasksPage() {
@@ -61,76 +83,252 @@ export default function TasksPage() {
     await load(uid);
   }
 
-  return (
-    <div style={{ padding: "24px", fontFamily: "system-ui, sans-serif" }}>
-      <h1 style={{ fontSize: "1.5rem", fontWeight: 600, marginBottom: 16 }}>Tasks</h1>
+  const todoTasks = tasks.filter((t) => t.status === "open");
+  const completedTasks = tasks.filter((t) => t.status === "done");
 
-      <div style={{ marginBottom: 24 }}>
-        <input
-          placeholder="Task title..."
-          style={{
-            border: "1px solid #ddd",
-            borderRadius: 8,
-            padding: "8px 12px",
-            width: "60%",
-            marginRight: 8,
-          }}
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
-        <input
-          type="datetime-local"
-          style={{
-            border: "1px solid #ddd",
-            borderRadius: 8,
-            padding: "8px 12px",
-            marginRight: 8,
-          }}
-          value={due}
-          onChange={(e) => setDue(e.target.value)}
-        />
-        <button
-          style={{ border: "1px solid #ccc", borderRadius: 8, padding: "8px 16px", cursor: "pointer" }}
-          onClick={addTask}
-        >
-          Add
-        </button>
+  return (
+    <div className="p-8 max-w-[1600px] mx-auto space-y-8">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Tasks</h1>
+          <p className="text-muted-foreground mt-1">
+            Manage document-related tasks and to-dos
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline">
+            <Filter className="h-4 w-4 mr-2" />
+            Filter
+          </Button>
+          <Button>
+            <Plus className="h-4 w-4 mr-2" />
+            New Task
+          </Button>
+        </div>
       </div>
 
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
-        <thead style={{ background: "#f9f9f9" }}>
-          <tr>
-            <th style={{ textAlign: "left", padding: "8px" }}>Title</th>
-            <th style={{ textAlign: "left", padding: "8px" }}>Due</th>
-            <th style={{ textAlign: "left", padding: "8px" }}>Status</th>
-            <th style={{ textAlign: "left", padding: "8px" }}>Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          {tasks.length === 0 && (
-            <tr>
-              <td colSpan={4} style={{ padding: "12px", color: "#777" }}>
-                No tasks yet
-              </td>
-            </tr>
-          )}
-          {tasks.map((t) => (
-            <tr key={t.id} style={{ borderTop: "1px solid #eee" }}>
-              <td style={{ padding: "8px" }}>{t.title}</td>
-              <td style={{ padding: "8px" }}>{t.due_at ? new Date(t.due_at).toLocaleString() : "—"}</td>
-              <td style={{ padding: "8px", textTransform: "capitalize" }}>{t.status}</td>
-              <td style={{ padding: "8px" }}>
-                <button
-                  style={{ border: "1px solid #ccc", borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}
-                  onClick={() => toggleDone(t)}
-                >
-                  {t.status === "done" ? "Reopen" : "Done"}
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="grid gap-6 md:grid-cols-4">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">To Do</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{todoTasks.length}</div>
+            <p className="text-xs text-muted-foreground mt-1">Pending tasks</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">Completed</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{completedTasks.length}</div>
+            <p className="text-xs text-muted-foreground mt-1">Finished tasks</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">Total</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{tasks.length}</div>
+            <p className="text-xs text-muted-foreground mt-1">All tasks</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">Overdue</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {tasks.filter((t) => {
+                if (!t.due_at || t.status === "done") return false;
+                return new Date(t.due_at) < new Date();
+              }).length}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">Requires attention</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Add New Task</CardTitle>
+          <CardDescription>
+            Create a new task
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Task Title</label>
+              <Input
+                placeholder="Task title..."
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Due Date (optional)</label>
+              <Input
+                type="datetime-local"
+                value={due}
+                onChange={(e) => setDue(e.target.value)}
+              />
+            </div>
+          </div>
+          <Button onClick={addTask} disabled={!title.trim()}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Task
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Tabs defaultValue="all" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="all">All Tasks</TabsTrigger>
+          <TabsTrigger value="todo">To Do</TabsTrigger>
+          <TabsTrigger value="completed">Completed</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="all" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>All Tasks</CardTitle>
+              <CardDescription>
+                {todoTasks.length} active tasks
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {tasks.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No tasks yet
+                  </div>
+                ) : (
+                  tasks.map((task) => (
+                    <div
+                      key={task.id}
+                      className={cn(
+                        "flex items-start gap-4 p-4 border rounded-lg transition-colors",
+                        task.status === "done" && "opacity-50"
+                      )}
+                    >
+                      <Checkbox
+                        checked={task.status === "done"}
+                        onCheckedChange={() => toggleDone(task)}
+                        className="mt-1"
+                      />
+                      <div className="flex-1 space-y-2">
+                        <div className="flex items-start justify-between gap-4">
+                          <h3
+                            className={cn(
+                              "font-medium",
+                              task.status === "done" && "line-through text-muted-foreground"
+                            )}
+                          >
+                            {task.title}
+                          </h3>
+                          <Badge variant="secondary" className="capitalize">
+                            {task.status}
+                          </Badge>
+                        </div>
+                        {task.due_at && (
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                            <Calendar className="h-3 w-3" />
+                            <span>{new Date(task.due_at).toLocaleString()}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="todo" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>To Do</CardTitle>
+              <CardDescription>
+                Tasks that need to be completed
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {todoTasks.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No pending tasks
+                  </div>
+                ) : (
+                  todoTasks.map((task) => (
+                    <div
+                      key={task.id}
+                      className="flex items-start gap-4 p-4 border rounded-lg"
+                    >
+                      <Checkbox
+                        checked={false}
+                        onCheckedChange={() => toggleDone(task)}
+                        className="mt-1"
+                      />
+                      <div className="flex-1 space-y-2">
+                        <h3 className="font-medium">{task.title}</h3>
+                        {task.due_at && (
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                            <Calendar className="h-3 w-3" />
+                            <span>{new Date(task.due_at).toLocaleString()}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="completed" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Completed Tasks</CardTitle>
+              <CardDescription>
+                {completedTasks.length} completed tasks
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {completedTasks.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No completed tasks
+                  </div>
+                ) : (
+                  completedTasks.map((task) => (
+                    <div
+                      key={task.id}
+                      className="flex items-start gap-4 p-4 border rounded-lg opacity-50"
+                    >
+                      <Checkbox checked={true} disabled className="mt-1" />
+                      <div className="flex-1">
+                        <h3 className="font-medium line-through text-muted-foreground">
+                          {task.title}
+                        </h3>
+                        {task.due_at && (
+                          <div className="flex items-center gap-4 text-sm text-muted-foreground mt-2">
+                            <span>Completed {new Date(task.due_at).toLocaleDateString()}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

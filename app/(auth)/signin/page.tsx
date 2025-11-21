@@ -72,8 +72,8 @@ export default function SignInPage() {
           disabled={status === "sending" || email.trim() === ""}
           style={{
             padding: "10px 12px",
-            border: "1px solid #6B4FEF",
-            background: "#6B4FEF",
+            border: "1px solid #aa80ff",
+            background: "#aa80ff",
             color: "#fff",
             borderRadius: 8,
             cursor: "pointer",

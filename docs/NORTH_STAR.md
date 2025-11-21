@@ -1,170 +1,216 @@
-# Monolyth — North Star (SSOT)  
-**Version:** 2025-11-16 • **Owner:** Adam • **Tagline:** *All your docs. One brain.*  
-**Positioning:** Document-first business task organizer with **Mono**, your AI operator.  
-**Promise:** Find → Act → Automate → Store — across Drive/Inbox/Chat/Sign — in one app.
+# Monolyth — NORTH_STAR (v2025-11-20)
+
+## 1. Vision
+
+Monolyth is the **document-first business OS** for founders and small teams.
+
+It connects all your important documents, automates the boring workflow glue around them, and gives you one AI operator — **Mono** — that knows what’s happening across your business.
+
+**Tagline:**  
+> **Monolyth – All your docs. One brain.**
+
+If you plug in your current doc mess (contracts, decks, PDFs, share links), Monolyth should feel like you suddenly hired a sharp operations person who:
+- Knows where every important doc lives.
+- Remembers what’s been done with it.
+- Nudges you on what needs to happen next.
 
 ---
 
-## 1) The Why (brutal reality)
-- People drown in docs, email, chats, and signature tools. They can’t find, decide, or move.
-- Suite copilots help **inside** a suite, not **across** suites. Search tools find but don’t act.
-- Monolyth solves the whole loop with a **single Workbench**, **AI triage**, and **Playbooks** that actually do work.
+## 2. Who Monolyth is For
+
+- Solo founders and lean teams who run their business out of Google Docs/Drive, PDFs, slides, and links.
+- SMBs drowning in contracts, proposals, and updates with no real system.
+- People who hate juggling 5–7 tools just to get a contract drafted, signed, shared, and tracked.
+
+Monolyth is **not** an enterprise ECM or a generic note-taking app. It’s a **doc-first task organizer** aimed at small teams that want leverage, not bureaucracy.
 
 ---
 
-## 2) Product North Star
-**Make non-trivial document work complete itself.**  
-- **Mono** flags what matters, then **executes** Playbooks (e.g., Inbound NDA → Save→Sign→Share).  
-- **Guest Spaces** turn every share into a viral on-ramp.  
-- **Vault** becomes the truth (versioning, lineage, dedupe, search that cites sources).
+## 3. Core Job To Be Done
 
-**10-minute aha (day-1):**
-1) Connect Google.  
-2) Mono surfaces: “3 unsigned NDAs, 9 stale proposals, 2 risky links. Fix all?”  
-3) Run Playbook → files organized, envelopes sent, links patched, Ops Brief generated.
+> “Show me everything that matters across my documents,  
+> help me get the next steps done automatically,  
+> and keep track of who did what, when.”
 
----
-
-## 3) Strategy (approved)
-1) **Integrate broadly** (metadata-first; no background content fetch).  
-2) **Show value** in Workbench (status + import on demand).  
-3) **Migrate**: one-click **Rebuild in Monolyth** → our **Builders** (Contracts now; Decks/Statements at GA).  
-4) **Automate** with **Playbooks** (Flow renamed).  
-5) **Grow virally** via **Guest Spaces + Smart Share Page** (AI brief teaser → CTA to Free).
+In plain terms:
+- One pane of glass for your important docs and their status.
+- Smart workflows that move documents along without you micro-managing them.
+- A trustworthy log and analytics layer so you aren’t flying blind.
 
 ---
 
-## 4) Scope by Milestone
-### Beta (end of Week 6)
-- **Mono (lite)**: per-item Analyze (summary, entities, dates, nextAction); inline tips; one-click actions.
-- **Workbench**: unified items (Gmail, Google Drive, Slack, Notion; + Outlook/OneDrive if ready); **Import** on demand; bulk Save/Share/Send.
-- **Builder (Contracts)**: prompt → templates/clauses → **Version 1** → Save to **Vault** (15 templates).
-- **Vault**: Google Drive app-folder RW; version history.
-- **Share Center**: links (passcode, watermark, revoke) + basic analytics.
-- **Signatures**: Documenso send (order, reminders); webhook → CSV/PDF audit into Vault; **Insights** timeline + CSV/PDF.
-- **Search**: metadata filters + Vault keyword.
-- **Calendar/Tasks Lite**: local view + reminders.
-- **Perf/Obs**: Workbench p50 <1.5s; preview <1.0s; PostHog/Sentry.
-- **Security**: least-privilege scopes; **no background content ingestion**.
+## 4. Product Pillars (What We Actually Ship)
 
-### GA (end of Week 15)
-- **Mono (full)**: batch triage; cross-signals (expiring links, pending sigs, meetings); **Autopilot Playbooks**; NL commands.
-- **Playbooks Library** (`/playbooks`, alias of `/flow`): Suggested/My/Org; Run/Schedule/Edit/Logs; dry-run + Undo.
-- **Builders**: Contracts + **Decks** + **Statements**; 45+ templates; redlining; custom prompts; team libraries.
-- **Search**: **Federated keyword across connectors** + AI re-rank; **Vault semantic/full-text** with citations.
-- **Vault**: version diff; AI-guided foldering; retention rules (Teams); **bulk import**; **semantic dedupe** + lineage.
-- **Share & Growth**: **Guest Spaces** (View/Comment/Fill&Sign/Limited Edit), passcode/expiry/watermark; **Smart Share Page** (AI brief teaser + CTA to Free); advanced link analytics.
-- **E-sig RO**: DocuSign/Adobe/Dropbox Sign status + executed PDFs in Workbench/Vault (sending stays on Documenso).
-- **Connectors (30–40)**: Google Workspace; Microsoft 365 (Outlook/OneDrive/**SharePoint/Teams**); Slack; Notion; **Box**; **Dropbox**; **Confluence/Jira**; **Asana/Trello/ClickUp**; **Canva (export RO)**; **Salesforce/HubSpot files RO**; **QuickBooks/Xero exports RO**; Google/Outlook Calendar.  
-  *Multi-account; **scheduled metadata refresh** (no background content ingestion).*
-- **Calendar/Tasks**: Starter = RO import; **Pro = two-way sync & AI due dates**; **Teams = org boards & SLAs**.
-- **Extensions**: Chrome Save+Brief; Gmail/Outlook add-ins (Save/Analyze/Send).
-- **Onboarding**: 3-step wizard (connect → choose 2 Playbooks → *Run now*) + Win Screen.
-- **Compliance/Perf**: a11y AA; pen test; pricing/caps enforcement.
+1. **Vault** – The source of truth for docs  
+   - Stores Monolyth-native docs and references to external docs (Google Drive, etc.).  
+   - Holds metadata: type, status, owner, tags, last activity.  
+   - **Semantic index is Vault-only** at first for safety and simplicity.
 
----
+2. **Builder** – AI document builder  
+   - Uses templates + Mono to draft and refine contracts and later decks/statements.  
+   - Beta: contracts only (NDAs, MSAs, etc.).  
+   - GA: contracts + decks + statements + bundles (“new hire packet”, “fundraising packet”).  
 
-## 5) Pricing (unchanged) + Free plan tuned for virality
-- **Free** (1 seat) • **Starter** $30/seat/mo • **Pro** $60/seat/mo • **Teams** $200/mo (3 seats incl.) + $50/extra seat • **−20% annual**.
-- **Free plan levers**:  
-  - Guest Spaces ON (counts to owner’s caps).  
-  - Smart Share Page + AI brief **teaser**; CTA to Free.  
-  - 2 **built-in** Playbooks/week (manual; ≤5 items/run).  
-  - 1 **Rebuild in Monolyth**/week (watermarked).  
-  - 10 active links; 30 AI analyses/mo; 2 sources; Vault keyword only; Monolyth branding.  
-- **Gates**: Federated search (Starter+). Semantic/full-text + batch triage (Pro+). Custom Playbooks (Starter 1; Pro/Teams unlimited). Multi-account, scheduled refresh, remove branding (Pro/Teams). Governance/retention (Teams).
+3. **Workbench** – Single pane of glass  
+   - Unified table view across Vault + connected sources.  
+   - Lets you filter by source, status, owner, and last activity.  
+   - First place you go to find a doc, run analysis, or kick off a workflow.
 
----
+4. **Playbooks** – Automation layer  
+   - Deterministic workflow engine: **triggers + conditions + actions**.  
+   - Automates recurrent document workflows (NDAs, proposals, approvals, follow-ups).  
+   - Mono helps design and explain Playbooks, but **users always approve and enable them**.
 
-## 6) Routes & Naming
-- **Routes:** `/dashboard · /workbench · /playbooks · /vault · /share · /signatures · /integrations · /insights · /settings · /billing`  
-  *(Playbooks was Flow; keep `/flow` route for compatibility, alias `/playbooks`.)*
-- **Auth:** Email magic link + Google SSO (no wallets pre-GA).
-- **Tables (Supabase):** User, Org, Member, SourceAccount, UnifiedItem, AttachmentLink, Document, Version, ShareLink, Envelope, ActivityLog, Template, Clause, BillingPlan, Invoice.
-- **Key events (PostHog):** `ai_analyze_completed`, `builder_generate`, `version_saved`, `share_link_created`, `envelope_status_changed`, `guest_view`, `guest_sign`, `playbook_run`, `search_federated_query`.
+5. **Share + Signatures** – External surface area  
+   - Share Center for secure share links with permissions, protection, and expiries.  
+   - E-signatures built on Documenso.  
+   - GA: Guest Spaces + Smart Share Page so external guests see everything relevant in one place.
+
+6. **Insights + Activity** – Brain telemetry  
+   - Activity Log records every meaningful event (generate, analyze, share, sign, playbook run, Mono query).  
+   - Insights dashboards show time saved, bottlenecks, and risky docs or workflows.
+
+7. **Mono (AI Operator)**  
+   - Lives in a right-hand pane plus global “Ask Mono” entrypoint.  
+   - Always page-aware: knows whether you’re in Vault, Builder, Playbooks, Share, or Activity.  
+   - Can:
+     - Organize docs and tasks.  
+     - Analyze and summarize docs.  
+     - Draft Playbooks and documents.  
+     - Explain what the Activity Log is telling you.  
+   - **Mono is a copilot, not an autonomous agent.**  
+     - It proposes drafts and optimizations.  
+     - You approve changes to Playbooks, permissions, and critical workflows.
 
 ---
 
-## 7) Guardrails (non-negotiable)
-- **Metadata-first ingestion**; fetch **file content only** on Preview / Save-to-Vault / Send-for-Signature.  
-- **Vault is the only semantic index.** Providers remain federated **keyword** search.  
-- Every AI action is **logged and undoable**; show **“Why this?”** with signals (who/what/when).  
-- **Guest tokens**: doc-scoped, TTL 7–14d, watermark, optional passcode; rate-limited; audit all actions.  
-- **Privacy**: Opt-in **Learning Library** (org + per-doc consent); PII scrubbing; hashed IDs; never shared externally.
+## 5. Navigation & Information Architecture
+
+Sidebar (GA baseline):
+
+- Dashboard  
+- Workbench  
+- Builder  
+- Playbooks  
+- Vault  
+- Share  
+- Signatures  
+- Integrations  
+- Insights  
+- Activity  
+- Calendar  
+- Tasks  
+- Settings  
+
+Conceptual groupings:
+
+- **Workspace:** Dashboard, Workbench, Builder, Vault.  
+- **Automation:** Playbooks, Tasks, Calendar.  
+- **Collaboration:** Share, Signatures.  
+- **Ops:** Insights, Activity, Settings, Integrations.
+
+Rule: every feature should clearly support one of those groups; if it doesn’t, it probably doesn’t belong in the core product.
+
+### Week 5 Product Shape
+
+At the end of Week 5, Monolyth has a **new UI shell** with:
+
+- **Sidebar + TopBar + Mono Pane**: Bolt-inspired design system with consistent navigation, theme toggle, and Mono assistant accessible on all core pages.
+- **Core Routes**: Dashboard, Workbench, Builder, Vault, Playbooks, Share, Activity, Settings — all with consistent layout and Mono integration.
+- **Golden Path**: Workbench → Analyze → Builder → Save to Vault → Share → Activity. This flow is wired end-to-end with ActivityLog tracking.
+- **Status**: Beta wiring is live. Playbooks, Share, and Activity pages exist in the shell with typed mock data and activity logging. Mono pane is mounted on all core pages with `/api/mono` stub route that logs queries.
+
+**Mono Operator Positioning**: Mono sits on top of all core modules:
+- **Workbench**: Analyzes documents, suggests actions, organizes the unified table.
+- **Builder**: Helps draft contracts, suggests clauses, reviews generated content.
+- **Vault**: Explains document status, suggests organization, identifies gaps.
+- **Playbooks**: Designs automation workflows, explains triggers and actions.
+- **Share**: Suggests permissions and protections, explains link usage.
+- **Activity**: Interprets audit trails, identifies patterns, answers "what happened?" questions.
 
 ---
 
-## 8) KPIs (prove PMF)
-- **TTV < 10 min** to first Playbook run.  
-- **Mono action rate ≥ 25%** by week 2.  
-- **Guest → Free = 5–10%**.  
-- **Search success ≥ 70%** on first query (Vault + federated).  
-- **Time-to-sign −30–50%** vs baseline for NDAs/proposals.
+## 6. Release Targets
+
+### Beta (Week 6)
+
+- Core promise: **"All your docs. One brain — for contracts."**  
+- Must-have modules:
+  - ✅ Vault v1 (contracts + key docs) — **Week 5: Live, docs appear after Save to Vault**.  
+  - ✅ Builder v1 (contracts only) — **Week 5: Live, generates contracts, saves to Vault**.  
+  - ✅ Workbench v1 (single pane of glass) — **Week 5: Live, unified table with Analyze**.  
+  - ✅ Share Center v1 — **Week 5: Shell + mock data, UI ready**.  
+  - ⏳ Signatures via Documenso — **Week 5: UI shell exists, integration pending**.  
+  - ✅ Activity Log v1 (key events and filters) — **Week 5: Live, tracks analyze_completed, doc_generated, doc_saved_to_vault, mono_query**.  
+  - ✅ Mono v1 (context-aware assistant on main pages) — **Week 5: Pane mounted on all pages, /api/mono stub + logging**.  
+  - ⏳ Playbooks v1 (limited automations for NDAs/proposals with prebuilt recipes) — **Week 5: Shell + mock data, engine pending**.
+
+- Connectors:
+  - ⏳ Google Drive (read) — **Week 5: Base wiring exists, needs hardening**.  
+  - ⏳ Documenso — **Week 5: Integration pending**.
+
+- Stability:
+  - ✅ "Generate → Save to Vault" — **Week 5: Working end-to-end**.  
+  - ⏳ "Share → Sign" — **Week 5: Share UI ready, Sign pending**.  
+  - ✅ ActivityLog records entire flow — **Week 5: Live for core events**.
+
+### GA (Week 15)
+
+- Core promise: **“Document-first business task organizer with Mono acting as your operator.”**  
+- Builder supports contracts, decks, and statements plus bundled flows.  
+- Playbooks engine fully usable for common business workflows.  
+- Smart Share Page and simple Guest Spaces live.  
+- Insights dashboards exist and don’t lie.  
+- Connectors stable enough that Drive-heavy users can rely on them daily.  
+- Pricing and plan caps implemented in code.
 
 ---
 
-## 9) “Holy-shit” workflows (ship and demo)
-1) **Inbound NDA → Save→Sign→Share** in <30s (AI brief, watermark, audit).  
-2) **Aging proposals → nudge + schedule follow-up**, tracked in Calendar.  
-3) **Risky links** (public/expiring) → fix/kill in one click.  
-4) **Weekly Ops Brief** auto-generated from last 7 days.
+## 7. Pricing & Free Plan (Direction)
+
+- Plans: **Free, Starter, Pro, Team** with prices:  
+  - Free — $0  
+  - Starter — $30/seat/month  
+  - Pro — $60/seat/month  
+  - Team — $200/month for 3 seats (+$50/additional seat)  
+  - ~20% discount on annual.
+
+Free plan is tuned for **virality**, not generosity:
+- 2 built-in playbooks/week, 1 rebuild/week.  
+- 10 active share links.  
+- 30 AI actions/month.  
+- Limited Vault docs and short Activity history.
+
+Everything above Free is about:
+- More docs  
+- More automations  
+- More AI  
+- Longer history and more seats.
 
 ---
 
-## 10) 15-Week Plan (at a glance)
-- **W1–W3:** Scaffold, ingest, **Analyze**, Contracts Builder MVP, Documenso audit, Insights.  
-- **W4–W6:** Calendar Lite, errors/caps, perf polish, **Beta freeze & testers**.  
-- **W7–W9:** **Federated search**, RO e-sig, Box/Confluence/Asana/Trello/ClickUp, SharePoint/Teams/Dropbox, Saved Views.  
-- **W10–W11:** Builders to 45+ templates; **Mono full + Playbooks Library** (nav appears).  
-- **W12–W13:** Two-way calendar, Insights cohorts/reports; Vault diff/foldering/retention; **semantic dedupe + lineage**.  
-- **W14:** **Guest Spaces + Smart Share Page**, Chrome/Gmail/Outlook extensions.  
-- **W15:** GA hardening, flags freeze, security, tours, launch.
+## 8. Non-Goals (Next 12–18 Months)
+
+- No heavy enterprise ECM or rigid DMS features.  
+- No generic chat-over-everything agent that automatically rewires workflows.  
+- No “yet another wiki” – focus on **documents that move money or risk** (contracts, proposals, board packs, investor updates).  
+- No sprawling marketplace before core flows are solid.
 
 ---
 
-## 11) Risks & Mitigations
-- **API/rate limits:** cache metadata; progressive import; backoff; connector watchlist.  
-- **Latency:** stream responses; precompute only cheap signals; p50 search <1.5s.  
-- **Permission fatigue:** minimal scopes; per-action pulls; explicit “no background fetch” pledge.  
-- **Over-promising AI:** guardrails + dry-run/undo; cite sources; clear limits.
+## 9. Definition of “Win” for This Phase
 
----
+By GA (Week 15):
 
-## 12) Decisions Log (snapshot)
-- **DEC-20251029-ROUTES-V1** — Routes & naming — **APPROVED**  
-- **DEC-20251029-AUTH-V1** — Email magic link + Google SSO pre-GA — **APPROVED**  
-- **DEC-20251029-BUILDER-STUDIOS-V1** — Studios (Contracts/Decks/Statements) — **APPROVED** (Decks/Statements at GA)  
-- **DEC-20251116-PLAYBOOKS-NAV-V1** — Flow → **Playbooks**; nav between Workbench and Vault — **APPROVED**  
-- **DEC-20251116-SHARE-GUEST-V1** — **Guest Spaces** + Smart Share Page + Free upsell — **APPROVED**
+- 5–10 active teams using Monolyth weekly for real contract/proposal flows.  
+- At least 2–3 workflows where Playbooks + Mono demonstrably save **hours/week**.  
+- Clear usage patterns to justify going deeper on:
+  - Playbooks (automation),  
+  - Share/Guest Spaces (external workflows),  
+  - or both.
 
----
+If founders and small teams can say:
 
-## 13) Demo Path (must always work)
-**Connect sources → Workbench shows mixed items → pick email attachment → Save to Vault → Send for Signature → see events in Insights → share with Guest → guest signs → recipient upsell to Free.**
+> “I finally know what’s happening across all my docs, and I don’t have to search other apps or chase people for next steps,”
 
----
-
-## 14) Out of Scope (pre-GA)
-- Wallet auth/linking; on-chain logs.  
-- Box write; SharePoint write; arbitrary background content crawls.  
-- Full desktop sync.  
-- Anything that violates guardrails above.
-
----
-
-## 15) Glossary
-- **Guest Space:** No-signup, link-scoped workspace (View/Comment/Fill&Sign/Limited Edit).  
-- **Playbook:** Multi-step, AI-assisted routine (manual/scheduled/event).  
-- **Vault:** App-folder storage + metadata; only place we build embeddings.  
-- **Federated search:** Keyword across external providers (no embeddings).  
-- **Semantic search:** Embeddings over **Vaulted** docs only.
-
----
-
-## 16) Appendix: Plan gates by tier (GA)
-- **Free:** 2 sources, Vault keyword only, 10 links, 30 AI analyses/mo, 2 built-in Playbooks/week (manual), 1 watermarked rebuild/week.  
-- **Starter ($30):** 5 sources, **federated search**, 1 custom Playbook (+schedule), basic multi-account, remove branding, share analytics basic.  
-- **Pro ($60):** 10 sources, multi-account + scheduled metadata refresh, **semantic/full-text**, batch triage, unlimited Playbooks, two-way calendar, Chrome/Gmail/Outlook extensions, advanced link analytics.  
-- **Teams ($200 incl. 3 seats):** 20 pooled sources, org Playbooks/permissions, retention rules, governance, SLAs, scheduled reports.
-
----
+then this North Star is on track.

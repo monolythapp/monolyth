@@ -14,8 +14,8 @@ We support two themes: **light** and **dark**. Both use the same brand purple an
 - Text primary: `#020617` (slate-950)
 - Text secondary: `#4B5563` (slate-600)
 - Border: `#E5E7EB`
-- Primary accent: `#5B21FF` (purple)
-- Accent soft: `#A855F7`
+- Primary accent: `#AA80FF` (lavender purple - matches Monolyth logo)
+- Accent soft: `#AA80FF`
 - Link: use primary accent
 
 ### 1.2 Dark theme
@@ -25,8 +25,8 @@ We support two themes: **light** and **dark**. Both use the same brand purple an
 - Text primary: `#E5E7EB`
 - Text secondary: `#9CA3AF`
 - Border: `#1F2933`
-- Primary accent: `#7C3AED` (brighter purple on dark)
-- Accent soft: `#A855F7`
+- Primary accent: `#AA80FF` (lavender purple - matches Monolyth logo)
+- Accent soft: `#AA80FF`
 - Link: use primary accent
 
 ### 1.3 Logos

@@ -5,26 +5,33 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { renderContent } from "@/lib/render";
 import { SHARE_PASSCODE_COOKIE_PREFIX, comparePasscodeHashes } from "@/lib/shares";
+import type { Version } from "@/lib/types";
 
+// Legacy share row type (for old "shares" table compatibility)
 type ShareRow = {
   id: string;
   doc_id: string | null;
-  version_id: string | null;
-  title?: string | null;
+  access: "public" | "passcode";
   passcode_hash?: string | null;
+  // Optional fields that may exist in some schemas
+  version_id?: string | null;
+  title?: string | null;
   passcode_required?: boolean | null;
 };
 
-type VersionRow = {
-  id: string;
-  title?: string | null;
+// Version row type that supports both old and new schema fields
+type VersionRow = Pick<Version, "id" | "title"> & {
   name?: string | null;
   content_url?: string | null;
+  content_md?: string | null;
+  body_md?: string | null;
+  markdown?: string | null;
+  md?: string | null;
 } & Record<string, unknown>;
 
 function getSupabaseServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_KEY;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) {
     throw new Error("Missing Supabase credentials for share rendering");
   }
@@ -32,6 +39,10 @@ function getSupabaseServiceClient() {
 }
 
 function inferRequiresPasscode(share: ShareRow) {
+  // Use access field first (from base schema), then fallback to passcode_required or passcode_hash
+  if (share.access === "passcode") {
+    return true;
+  }
   return Boolean(share.passcode_required || share.passcode_hash);
 }
 
@@ -122,23 +133,35 @@ export async function GET(req: NextRequest) {
     }
 
     const supabase = getSupabaseServiceClient();
+    // Select only base schema fields that are guaranteed to exist
+    // Optional fields (version_id, title, passcode_required) will be null if they don't exist
     const { data: share, error } = await supabase
       .from("shares")
-      .select("id, doc_id, version_id, title, passcode_hash, passcode_required")
+      .select("id, doc_id, access, passcode_hash")
       .eq("id", id)
       .single();
 
     if (error || !share) {
+      // Log the actual error for debugging
+      console.error("Share lookup error:", error?.message || "No share found");
       return NextResponse.json({ error: "Share not found" }, { status: 404 });
     }
 
-    const requiresPasscode = inferRequiresPasscode(share);
-    const hasAccess = await ensurePasscodeAccess(share);
+    // Create full share object with optional fields as null (they may not exist in schema)
+    const fullShare: ShareRow = {
+      ...share,
+      version_id: null,
+      title: null,
+      passcode_required: null,
+    };
+
+    const requiresPasscode = inferRequiresPasscode(fullShare);
+    const hasAccess = await ensurePasscodeAccess(fullShare);
     if (requiresPasscode && !hasAccess) {
       return NextResponse.json({ requiresPasscode: true }, { status: 401 });
     }
 
-    const { markdown, title, docId } = await resolveMarkdown(supabase, share);
+    const { markdown, title, docId } = await resolveMarkdown(supabase, fullShare);
     const { html } = renderContent(markdown, "md");
 
     return NextResponse.json({

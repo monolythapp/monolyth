@@ -1,0 +1,152 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getRouteAuthContext } from "@/lib/auth/route-auth";
+import { logMonoQuery } from "@/lib/activity-log";
+import { logServerEvent, logServerError } from "@/lib/telemetry-server";
+import type { MonoContext } from "@/components/mono/mono-pane";
+
+export async function POST(req: NextRequest) {
+  const startedAt = performance.now();
+  
+  try {
+    const { isAuthenticated, userId, orgId, ownerId } = await getRouteAuthContext(req);
+
+    if (!isAuthenticated || !userId) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Authentication required",
+          details: null,
+        },
+        { status: 401 }
+      );
+    }
+
+    if (!orgId) {
+      console.error("[mono] query error: failed to get or create org", { userId });
+      return NextResponse.json(
+        { ok: false, error: "Failed to initialize workspace. Please try again.", details: null },
+        { status: 500 }
+      );
+    }
+
+    // Check if Mono/OpenAI is configured
+    if (!process.env.OPENAI_API_KEY) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Mono is not configured yet in this dev build.",
+          details: null,
+        },
+        { status: 503 }
+      );
+    }
+
+    const body = await req.json().catch(() => ({} as any));
+    const message = body.message as string | undefined;
+    const context = body.context as MonoContext | undefined;
+
+    if (!message || typeof message !== "string" || message.trim().length === 0) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Message is required",
+          details: null,
+        },
+        { status: 400 }
+      );
+    }
+
+    // Log mono_query event (best-effort, don't fail on logging errors)
+    try {
+      const logStartedAt = performance.now();
+      await logMonoQuery({
+        orgId,
+        userId,
+        ownerId: ownerId ?? null,
+        message: message.trim(),
+        context: {
+          route: context?.route || "unknown",
+          selectedDocumentId: context?.selectedDocumentId || null,
+          selectedUnifiedItemId: context?.selectedUnifiedItemId || null,
+          filters: context?.filters || {},
+        },
+        source: "mono",
+        triggerRoute: "/api/mono",
+        durationMs: performance.now() - logStartedAt,
+      });
+    } catch (logError) {
+      console.error("[mono] failed to log mono_query", logError);
+    }
+
+    // For now, return a stubbed response
+    // TODO: Integrate with OpenAI client (same as Analyze) when ready
+    const reply = `Mono stub: I see you are on ${context?.route || "unknown"}. You asked: "${message.trim()}". This is a placeholder response. Real AI integration will be added in a future update.`;
+
+    const durationMs = performance.now() - startedAt;
+    
+    logServerEvent({
+      event: "mono_chat",
+      userId,
+      orgId,
+      docId: context?.selectedDocumentId ?? context?.selectedUnifiedItemId ?? null,
+      source: "mono",
+      route: "/api/mono",
+      durationMs,
+      properties: {
+        status: "ok",
+        has_context: !!context,
+        context_route: context?.route ?? null,
+      },
+    });
+
+    return NextResponse.json(
+      {
+        ok: true,
+        reply,
+        actions: [],
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    const durationMs = performance.now() - startedAt;
+    
+    console.error("[mono] query error: unhandled exception", {
+      error,
+      message: (error as any)?.message,
+    });
+
+    // Try to get auth context for error logging
+    let authUserId: string | null = null;
+    let authOrgId: string | null = null;
+    try {
+      const authContext = await getRouteAuthContext(req);
+      authUserId = authContext.userId;
+      authOrgId = authContext.orgId;
+    } catch {
+      // Ignore auth errors in error handler
+    }
+
+    logServerError({
+      event: "mono_chat",
+      userId: authUserId,
+      orgId: authOrgId,
+      source: "mono",
+      route: "/api/mono",
+      durationMs,
+      properties: {
+        status: "error",
+      },
+      error,
+    });
+
+    return NextResponse.json(
+      {
+        ok: false,
+        error: `Mono failed: ${(error as any)?.message ?? "unknown error"}`,
+        details: null,
+      },
+      { status: 500 }
+    );
+  }
+}
+

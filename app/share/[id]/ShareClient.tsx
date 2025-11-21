@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import useScrollEvents from "@/components/share/useScrollEvents";
+import { MonoLite } from "@/components/mono/mono-lite";
 
 type ShareResponse = {
   title: string;
@@ -184,6 +185,7 @@ export default function ShareClient({ shareId }: Props) {
         {state.status === "ready" ? null : <h1 className="mb-4 text-2xl font-semibold">Share</h1>}
         {content}
       </div>
+      <MonoLite />
     </div>
   );
 }

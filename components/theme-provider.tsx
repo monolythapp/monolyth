@@ -1,93 +1,122 @@
-"use client";
+'use client';
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+import * as React from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 
-export type Theme = "light" | "dark";
+type Theme = 'light' | 'dark';
 
-const THEME_STORAGE_KEY = "monolyth-theme";
+interface ThemeProviderProps {
+  children: React.ReactNode;
+  attribute?: string;
+  defaultTheme?: Theme;
+  enableSystem?: boolean;
+  disableTransitionOnChange?: boolean;
+}
 
 interface ThemeContextValue {
   theme: Theme;
   setTheme: (theme: Theme) => void;
-  toggleTheme: () => void;
-  isReady: boolean;
 }
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
-export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("light");
-  const [isReady, setIsReady] = useState(false);
+const THEME_STORAGE_KEY = 'monolyth-theme';
 
-  const applyTheme = useCallback((nextTheme: Theme) => {
-    if (typeof document !== "undefined") {
-      const root = document.documentElement;
-      if (nextTheme === "dark") {
-        root.classList.add("dark");
+export function ThemeProvider({
+  children,
+  attribute = 'class',
+  defaultTheme = 'light',
+  enableSystem = false,
+  disableTransitionOnChange = false,
+}: ThemeProviderProps) {
+  const [theme, setThemeState] = useState<Theme>(defaultTheme);
+  const [mounted, setMounted] = useState(false);
+
+  // Apply theme to document
+  const applyTheme = React.useCallback((nextTheme: Theme) => {
+    if (typeof document === 'undefined') return;
+    
+    const root = document.documentElement;
+    
+    if (disableTransitionOnChange) {
+      const css = document.createElement('style');
+      css.appendChild(
+        document.createTextNode(
+          '*,*::before,*::after{-webkit-transition:none!important;-moz-transition:none!important;-o-transition:none!important;-ms-transition:none!important;transition:none!important}'
+        )
+      );
+      document.head.appendChild(css);
+      
+      if (nextTheme === 'dark') {
+        root.classList.add('dark');
       } else {
-        root.classList.remove("dark");
+        root.classList.remove('dark');
+      }
+      
+      // Force reflow
+      void root.offsetHeight;
+      
+      document.head.removeChild(css);
+    } else {
+      if (nextTheme === 'dark') {
+        root.classList.add('dark');
+      } else {
+        root.classList.remove('dark');
       }
     }
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
-    }
-  }, []);
+  }, [disableTransitionOnChange]);
 
+  // Initialize theme from localStorage or system preference
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
-
-    let initial: Theme = "light";
-    if (stored === "light" || stored === "dark") {
-      initial = stored;
-    } else if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
-      initial = "dark";
+    setMounted(true);
+    
+    let initialTheme: Theme = defaultTheme;
+    
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(THEME_STORAGE_KEY) as Theme | null;
+      
+      if (stored === 'light' || stored === 'dark') {
+        initialTheme = stored;
+      } else if (enableSystem) {
+        const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        initialTheme = systemPrefersDark ? 'dark' : 'light';
+      }
+      
+      setThemeState(initialTheme);
+      applyTheme(initialTheme);
     }
+  }, [defaultTheme, enableSystem, applyTheme]);
 
-    setThemeState(initial);
-    applyTheme(initial);
-    setIsReady(true);
+  // Update theme state and apply changes
+  const setTheme = React.useCallback((nextTheme: Theme) => {
+    setThemeState(nextTheme);
+    
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
+      applyTheme(nextTheme);
+    }
   }, [applyTheme]);
 
+  // Apply theme when it changes
   useEffect(() => {
-    if (!isReady) return;
-    applyTheme(theme);
-  }, [applyTheme, theme, isReady]);
+    if (mounted) {
+      applyTheme(theme);
+    }
+  }, [theme, mounted, applyTheme]);
 
-  const setTheme = useCallback((next: Theme) => {
-    setThemeState(next);
-  }, []);
-
-  const toggleTheme = useCallback(() => {
-    setThemeState((prev) => (prev === "light" ? "dark" : "light"));
-  }, []);
-
-  const value = useMemo<ThemeContextValue>(
-    () => ({
-      theme,
-      setTheme,
-      toggleTheme,
-      isReady,
-    }),
-    [theme, setTheme, toggleTheme, isReady]
+  // Always provide the context, even during SSR/initial render
+  // This prevents "useTheme must be used within ThemeProvider" errors
+  return (
+    <ThemeContext.Provider value={{ theme, setTheme }}>
+      {children}
+    </ThemeContext.Provider>
   );
-
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
 export function useTheme(): ThemeContextValue {
-  const ctx = useContext(ThemeContext);
-  if (!ctx) {
-    throw new Error("useTheme must be used within ThemeProvider");
+  const context = useContext(ThemeContext);
+  if (!context) {
+    throw new Error('useTheme must be used within ThemeProvider');
   }
-  return ctx;
+  return context;
 }
-

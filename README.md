@@ -63,10 +63,48 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
   - Insights → Download CSV.
   - Share → Open public link.
 
-### Week 3 status
+## Current status
 
-- Status: Functional draft (run `docs/SMOKE_WEEK3.md` before merging).
-- Builder: AI generate, manual fallback, save to Vault versions, load via docId.
-- Vault: Supabase-backed docs table with version counts + open-in-builder.
-- Share: Render endpoint + passcode prompts, scroll telemetry.
-- Global light/dark theme, header sidebar logo, PostHog events for generate/save/share.
+> Updated for **end of Week 4**. This is a realistic snapshot, not the ideal plan.
+
+- **OpenAI wired for Analyze.**
+  - `/api/ai/analyze` exists and is used by the Workbench Analyze drawer.
+  - Responses are validated via Zod and presented as Summary / Entities / Dates / Next Action.
+
+- **Workbench Analyze drawer live.**
+  - Per-item Analyze actions are available on the Workbench.
+  - Errors are surfaced gracefully; the page does not crash.
+
+- **Supabase core schema & helpers in place.**
+  - Core tables: `user`, `org`, `member`, `source_account`, `unified_item`,
+    `document`, `version`, `share_link`, `envelope`, `activity_log`,
+    `template`, `clause`.
+  - Server and browser Supabase clients exist and are used in key flows.
+
+- **Templates & Clauses powered Builder (Contracts Builder V1).**
+  - `/builder` loads Templates and Clauses from Supabase.
+  - Contracts Builder V1 flow:
+    - Step 1: choose Template.
+    - Step 2: choose Clauses.
+    - Step 3: enter instructions.
+    - Step 4: **Generate Version 1** → currently generates a structured **stub draft** on the client.
+  - A **Save Version 1** button exists but is intentionally a stub; it does not yet
+    persist to Vault or Versions.
+
+- **Vault & Share flows.**
+  - Existing Save → Vault → Share flows (from earlier weeks) still work and are
+    Supabase-backed for at least one document path.
+
+- **Telemetry & ActivityLog – partially wired.**
+  - Telemetry stubs exist for `builder_generate` and related events.
+  - `activity_log` table is present but not yet reliably populated for:
+    - `analyze_completed`
+    - `version_saved`
+  - Full wiring of Analyze/Builder to ActivityLog is explicitly scheduled as a
+    **Week 5 task** to avoid blocking progress.
+
+This means Monolyth now has:
+
+- A functional Workbench with AI analysis.
+- A functional Contracts Builder V1 UX using real Templates and Clauses.
+- A Supabase-backed schema ready for proper logging and versioning in Week 5.

@@ -1,0 +1,353 @@
+"use client";
+
+import { useState } from "react";
+import { toast } from "sonner";
+import { logBuilderEvent } from "@/lib/telemetry/builder";
+
+type TemplateOption = {
+  id: string;
+  name: string;
+  category?: string | null;
+  description?: string | null;
+  default_prompt?: string | null;
+};
+
+type ClauseOption = {
+  id: string;
+  name: string;
+  category?: string | null;
+  body: string;
+};
+
+interface ContractsBuilderV1Props {
+  templates: TemplateOption[];
+  clauses: ClauseOption[];
+}
+
+export function ContractsBuilderV1({
+  templates,
+  clauses,
+}: ContractsBuilderV1Props) {
+  // Guard against missing props
+  const safeTemplates = Array.isArray(templates) ? templates : [];
+  const safeClauses = Array.isArray(clauses) ? clauses : [];
+
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+  const [selectedClauseIds, setSelectedClauseIds] = useState<string[]>([]);
+  const [instructions, setInstructions] = useState("");
+  const [generatedContent, setGeneratedContent] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [savedDocumentId, setSavedDocumentId] = useState<string | null>(null);
+
+  const selectedTemplate = safeTemplates.find((t) => t.id === selectedTemplateId);
+
+  const toggleClause = (id: string) => {
+    setSelectedClauseIds((prev) =>
+      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id],
+    );
+  };
+
+  const handleGenerate = async () => {
+    if (!selectedTemplate) {
+      setError("Please select a template first.");
+      return;
+    }
+    if (!instructions.trim()) {
+      setError("Please add some instructions or context.");
+      return;
+    }
+
+    setError(null);
+    setLoading(true);
+
+    try {
+      logBuilderEvent("builder_generate", {
+        templateId: selectedTemplate.id,
+        templateName: selectedTemplate.name,
+        clauseCount: selectedClauseIds.length,
+      });
+
+      const includedClauses = safeClauses.filter((c) =>
+        selectedClauseIds.includes(c.id),
+      );
+
+      const clauseText =
+        includedClauses.length > 0
+          ? includedClauses
+              .map(
+                (c, idx) =>
+                  `${idx + 1}. ${c.name}${
+                    c.category ? ` [${c.category}]` : ""
+                  }\n${c.body}`,
+              )
+              .join("\n\n")
+          : "No specific clauses selected. Use standard boilerplate where appropriate.";
+
+      const stub = [
+        `DRAFT VERSION 1 – ${selectedTemplate.name}`,
+        "",
+        "Scenario / instructions:",
+        instructions.trim(),
+        "",
+        "Clauses to reflect:",
+        clauseText,
+        "",
+        "[TODO: Replace this stub with full AI-generated contract text in Week 5.]",
+      ].join("\n");
+
+      setGeneratedContent(stub);
+      setError(null); // Clear any previous errors on success
+    } catch (err) {
+      const errorMessage = (err as Error).message ?? "Failed to generate Version 1.";
+      setError(errorMessage);
+      logBuilderEvent("builder_generate_failed", {
+        error: errorMessage,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Builder Save-to-Vault: sends title/content for new contract to canonical backend API. On success, doc appears on /vault. On failure, toast shows Supabase error; console logs full details.
+  const handleSaveToVault = async () => {
+    if (!selectedTemplate) {
+      setError("Please select a template first.");
+      return;
+    }
+    if (!generatedContent.trim()) {
+      setError("Please generate Version 1 content first.");
+      return;
+    }
+
+    setError(null);
+    setSaving(true);
+    const toastId = toast.loading("Saving to Vault...");
+
+    try {
+      const title = `${selectedTemplate.name} — ${new Date().toISOString().slice(0, 10)}`;
+      const content = generatedContent;
+
+      const response = await fetch("/api/documents/versions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          // Builder mode: do NOT send unifiedItemId here.
+          // The API distinguishes this path by the absence of unifiedItemId
+          // and the presence of title/content.
+          title,
+          content,
+          templateId: selectedTemplate.id,
+        }),
+      });
+
+      let data: any = null;
+      let rawBody: string | null = null;
+      try {
+        data = await response.json();
+      } catch {
+        // If JSON parse fails, try to get raw body for debugging
+        try {
+          rawBody = await response.clone().text();
+        } catch {
+          // ignore
+        }
+      }
+
+      if (!response.ok || !data?.ok) {
+        const baseMessage = data?.error ?? "Failed to save to Vault";
+        const details = data?.details;
+
+        let detailsSuffix = "";
+        if (details) {
+          const parts: string[] = [];
+          if (details.code) parts.push(`code=${details.code}`);
+          if (details.message) parts.push(details.message);
+          if (parts.length) {
+            detailsSuffix = ` (${parts.join(" - ")})`;
+          }
+        }
+
+        const errorMessage = `${baseMessage}${detailsSuffix}`;
+
+        let rawBody: string | null = null;
+        try {
+          rawBody = await response.clone().text();
+        } catch {
+          // ignore
+        }
+
+        const errorDetails = {
+          status: response.status,
+          error: errorMessage,
+          details,
+          data,
+          rawBody,
+        };
+
+        console.error("[builder] Save to Vault error", errorDetails);
+
+        toast.error(errorMessage, {
+          id: toastId,
+        });
+        return;
+      }
+
+      setSavedDocumentId(data.documentId ?? null);
+      toast.success("Saved to Vault", { id: toastId });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorDetails = {
+        message: errorMessage,
+        name: error instanceof Error ? error.name : typeof error,
+        stack: error instanceof Error ? error.stack : undefined,
+      };
+      console.error("[builder] Save to Vault unexpected error", errorDetails);
+      toast.error(`Failed to save to Vault: ${errorMessage}`, { id: toastId });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-semibold mb-1">Contracts Builder</h1>
+        <p className="text-sm text-muted-foreground">
+          Step 1: pick a template. Step 2: choose clauses. Step 3: describe
+          your scenario. Step 4: generate Version 1.
+        </p>
+      </div>
+
+      {error && (
+        <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+          {error}
+        </div>
+      )}
+
+      {savedDocumentId && (
+        <div className="rounded-md border border-green-500/40 bg-green-500/5 px-3 py-2 text-xs text-green-700 dark:text-green-400">
+          ✓ Saved to Vault (document ID: {savedDocumentId})
+        </div>
+      )}
+
+      {/* Step 1: Template */}
+      <section className="space-y-2">
+        <h2 className="text-sm font-medium">1. Template</h2>
+        <div className="flex flex-wrap gap-2">
+          {safeTemplates.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setSelectedTemplateId(t.id)}
+              className={`rounded-md border px-3 py-2 text-xs text-left ${
+                selectedTemplateId === t.id
+                  ? "border-primary bg-primary/5"
+                  : "border-border bg-background"
+              }`}
+            >
+              <div className="font-medium">{t.name}</div>
+              {t.category && (
+                <div className="text-[10px] uppercase text-muted-foreground mt-0.5">
+                  {t.category}
+                </div>
+              )}
+              {t.description && (
+                <div className="mt-1 text-[11px] text-muted-foreground line-clamp-2">
+                  {t.description}
+                </div>
+              )}
+            </button>
+          ))}
+          {safeTemplates.length === 0 && (
+            <p className="text-xs text-muted-foreground">
+              No templates found. Check Supabase template table.
+            </p>
+          )}
+        </div>
+      </section>
+
+      {/* Step 2: Clauses */}
+      <section className="space-y-2">
+        <h2 className="text-sm font-medium">2. Clauses (optional)</h2>
+        <div className="max-h-48 overflow-y-auto rounded-md border p-2 space-y-1 bg-muted/40">
+          {safeClauses.length === 0 && (
+            <p className="text-xs text-muted-foreground">
+              No clauses found. Check Supabase clause table.
+            </p>
+          )}
+          {safeClauses.map((c) => (
+            <label
+              key={c.id}
+              className="flex items-start gap-2 text-xs cursor-pointer"
+            >
+              <input
+                type="checkbox"
+                className="mt-0.5"
+                checked={selectedClauseIds.includes(c.id)}
+                onChange={() => toggleClause(c.id)}
+              />
+              <span>
+                <span className="font-medium">{c.name}</span>
+                {c.category && (
+                  <span className="ml-1 text-[10px] uppercase text-muted-foreground">
+                    ({c.category})
+                  </span>
+                )}
+              </span>
+            </label>
+          ))}
+        </div>
+      </section>
+
+      {/* Step 3: Instructions */}
+      <section className="space-y-2">
+        <h2 className="text-sm font-medium">3. Instructions / scenario</h2>
+        <textarea
+          className="w-full min-h-[120px] rounded-md border bg-background p-2 text-sm"
+          placeholder="Describe the parties, business context, key deal terms, and anything else the AI should know."
+          value={instructions}
+          onChange={(e) => setInstructions(e.target.value)}
+        />
+      </section>
+
+      {/* Step 4: Generate + Version 1 content */}
+      <section className="space-y-2">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-medium">4. Version 1 draft</h2>
+          <button
+            type="button"
+            onClick={handleGenerate}
+            disabled={loading}
+            className="inline-flex items-center rounded-md border bg-primary text-primary-foreground px-3 py-1.5 text-xs font-medium hover:bg-primary/90 disabled:opacity-60"
+          >
+            {loading ? "Generating…" : "Generate Version 1"}
+          </button>
+        </div>
+        <textarea
+          className="w-full min-h-[260px] rounded-md border bg-background p-2 text-sm"
+          placeholder="Version 1 content will appear here. You can edit it before saving."
+          value={generatedContent}
+          onChange={(e) => setGeneratedContent(e.target.value)}
+        />
+        <div className="flex items-center justify-between">
+          <p className="text-[11px] text-muted-foreground">
+            {savedDocumentId
+              ? "Saved to Vault. You can generate again to create a new version."
+              : "Edit the content above, then save to Vault."}
+          </p>
+          <button
+            type="button"
+            onClick={handleSaveToVault}
+            disabled={saving || !generatedContent.trim()}
+            className="inline-flex items-center rounded-md border bg-primary text-primary-foreground px-3 py-1.5 text-xs font-medium hover:bg-primary/90 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {saving ? "Saving…" : "Save to Vault"}
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+

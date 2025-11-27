@@ -551,15 +551,25 @@ export function BuilderClient({ templates, clauses }: BuilderClientProps) {
         <div className="p-4 border-b space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="font-semibold">Templates</h2>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => router.push("/builder/draft")}
-              className="text-xs"
-            >
-              <FolderOpen className="h-3 w-3 mr-1" />
-              View Drafts
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => router.push("/activity")}
+                className="text-xs"
+              >
+                View activity
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => router.push("/builder/draft")}
+                className="text-xs"
+              >
+                <FolderOpen className="h-3 w-3 mr-1" />
+                View Drafts
+              </Button>
+            </div>
           </div>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

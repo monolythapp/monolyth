@@ -541,9 +541,14 @@ export default function VaultPage() {
                 {loading ? "Loading…" : `${filteredRows.length} documents`}
               </p>
             </div>
-            <Link href="/builder">
-              <Button>New from Builder</Button>
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link href="/activity">
+                <Button variant="outline" size="sm">View activity</Button>
+              </Link>
+              <Link href="/builder">
+                <Button>New from Builder</Button>
+              </Link>
+            </div>
           </div>
         </div>
 

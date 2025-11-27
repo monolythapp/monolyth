@@ -328,11 +328,21 @@ export default function IntegrationsPage() {
   return (
     <main className="mx-auto flex min-h-screen max-w-4xl flex-col gap-6 px-4 py-10">
       <header className="mb-2">
-        <h1 className="text-2xl font-semibold">Integrations</h1>
-        <p className="mt-1 text-sm text-neutral-400">
-          Connect Monolyth to your external tools. Drive imports are metadata-first and can
-          be synced on demand.
-        </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold">Integrations</h1>
+            <p className="mt-1 text-sm text-neutral-400">
+              Connect Monolyth to your external tools. Drive imports are metadata-first and can
+              be synced on demand.
+            </p>
+          </div>
+          <a
+            href="/activity?groups=connectors"
+            className="inline-flex items-center rounded-md border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-xs font-medium text-neutral-50 hover:bg-neutral-800 transition"
+          >
+            View connector activity
+          </a>
+        </div>
       </header>
 
       <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">

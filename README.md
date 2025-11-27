@@ -1,4 +1,22 @@
-# Monolyth (Week-1 local MVP)
+# Monolyth
+
+## Product SSOT (Specs & Pricing)
+
+The single source of truth for the GA (20-week, Google-first) build lives in:
+
+- [`docs/NORTH_STAR.md`](docs/NORTH_STAR.md) — vision, guardrails, GA definition of done
+
+- [`docs/PRODUCT/PLAN_SPECS_TABLE.md`](docs/PRODUCT/PLAN_SPECS_TABLE.md) — GA product spec table
+
+- [`docs/PRODUCT/PRICING_TABLE.md`](docs/PRODUCT/PRICING_TABLE.md) — plans & pricing table
+
+### Post-GA (read-only during GA)
+
+- [`docs/NORTH_STAR_POST_GA.md`](docs/NORTH_STAR_POST_GA.md) — post-GA vision & integration plan (do not implement before GA)
+
+> Scope is frozen until GA: only Google Drive + Gmail connectors ship; internal Tasks and built-in Playbooks only.
+
+---
 
 - Next.js 16 (App Router, Turbopack)
 - Supabase (Auth + DB)

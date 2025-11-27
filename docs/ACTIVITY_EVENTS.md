@@ -631,3 +631,27 @@ Body:
 Exports a CSV of high-level Insights metrics (docs generated, saved to Vault,
 share links, signatures, playbook runs, Mono queries, time saved, docs in Vault).
 
+---
+
+## See also
+
+- `docs/ACTIVITY_INSIGHTS_V1.md` defines how we group these events into:
+
+  - Activity filters (Docs, Mono, Connectors, Signatures, System), and
+
+  - Insights v1 metrics (docs created, Mono questions, connector syncs, signatures completed, etc.).
+
+Use both docs together when adding new events or changing how Activity & Insights behave.
+
+Reference current or unique activity types as defined in Supabase
+
+| type                     |
+| ------------------------ |
+| analyze_completed        |
+| connector_sync_completed |
+| connector_sync_started   |
+| doc_generated            |
+| doc_saved_to_vault       |
+| mono_query               |
+| selftest                 |
+

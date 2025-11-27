@@ -20,10 +20,22 @@ vi.mock("@/lib/supabase-server", () => ({
 describe("logActivity metadata structure", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Mock insert path for activity_log.insert(...).select("id").single()
     mockInsert.mockReturnValue({
       select: vi.fn().mockReturnValue({
         single: vi.fn().mockResolvedValue({
           data: { id: "test-id" },
+          error: null,
+        }),
+      }),
+    });
+
+    // Mock select path for unified_item lookup:
+    // supabase.from("unified_item").select("id").eq("id", unifiedItemId).maybeSingle()
+    mockSelect.mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: { id: "test-item-id" },
           error: null,
         }),
       }),

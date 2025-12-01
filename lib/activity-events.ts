@@ -29,6 +29,10 @@ export const ACTIVITY_EVENT_TYPES = [
   "connector_sync_started",
   "connector_sync_completed",
   "connector_sync_failed",
+
+  // Accounts Packs
+  "accounts_pack_success",
+  "accounts_pack_failure",
 ] as const;
 
 export type ActivityEventType = (typeof ACTIVITY_EVENT_TYPES)[number];
@@ -58,6 +62,10 @@ export const ACTIVITY_EVENT_LABELS: Record<ActivityEventType, string> = {
   connector_sync_started: "Connector syncs started",
   connector_sync_completed: "Connector syncs completed",
   connector_sync_failed: "Connector syncs failed",
+
+  // Accounts Packs
+  accounts_pack_success: "Accounts pack run succeeded",
+  accounts_pack_failure: "Accounts pack run failed",
 };
 
 /**

@@ -1,8 +1,12 @@
 // Accounts Packs v1 — shared types for Week 15
 // This file intentionally contains **types only**. No runtime logic yet.
-// Day 2 will add the query implementations that return these shapes.
+// Day 2 adds DB-linked helpers used by /api/accounts/packs and Insights.
 
 import type { SupabaseLikeClient } from "../activity-log";
+
+// =============================================================================
+// Public types
+// =============================================================================
 
 export type AccountsPackType =
   | "saas_monthly_expenses"
@@ -12,6 +16,12 @@ export const ACCOUNTS_PACK_TYPES: readonly AccountsPackType[] = [
   "saas_monthly_expenses",
   "investor_accounts_snapshot",
 ] as const;
+
+export type AccountsPackStatus = "success" | "failure" | "partial";
+
+// =============================================================================
+// Date + pack payload types
+// =============================================================================
 
 /**
  * Simple date range using ISO-8601 date strings (YYYY-MM-DD).
@@ -147,6 +157,25 @@ export interface InvestorAccountsSnapshotPack {
  * Discriminated union of all Accounts Packs.
  */
 export type AccountsPack = SaaSExpensesPack | InvestorAccountsSnapshotPack;
+
+export interface AccountsPackRun {
+  id: string;
+  orgId: string;
+  type: AccountsPackType;
+  periodStart: string | null;
+  periodEnd: string | null;
+  status: AccountsPackStatus;
+  /**
+   * Opaque metrics blob derived from the pack headline. Kept intentionally
+   * loose so Insights can evolve without schema churn.
+   */
+  metrics: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+// =============================================================================
+// Request / response types
+// =============================================================================
 
 /**
  * Request payloads for /api/accounts/packs.
@@ -301,6 +330,43 @@ function mapSourcesByFinancialDocument(
     map.set(source.financialDocumentId, source.sourceConnector);
   }
   return map;
+}
+
+function deriveMetricsForPack(
+  pack: AccountsPack,
+): { period: AccountsDateRange; metrics: Record<string, unknown> } {
+  if (pack.type === "saas_monthly_expenses") {
+    const { headline } = pack;
+    return {
+      period: headline.period,
+      metrics: {
+        totalAmount: headline.totalAmount,
+        currency: headline.currency,
+        vendorCount: headline.vendorCount,
+        categoryCount: headline.categoryCount,
+        averagePerVendor: headline.averagePerVendor,
+        deltaAmount: headline.deltaAmount ?? null,
+        deltaPercent: headline.deltaPercent ?? null,
+      },
+    };
+  }
+
+  const { headline, metricsTrail } = pack;
+  return {
+    period: headline.period,
+    metrics: {
+      cashBalance: headline.cashBalance ?? null,
+      cashCurrency: headline.cashCurrency ?? null,
+      monthlySaaSBurn: headline.monthlySaaSBurn ?? null,
+      totalMonthlyBurn: headline.totalMonthlyBurn ?? null,
+      estimatedRunwayMonths: headline.estimatedRunwayMonths ?? null,
+      contractsInVault: headline.contractsInVault ?? 0,
+      decksInVault: headline.decksInVault ?? 0,
+      accountsDocsInVault: headline.accountsDocsInVault ?? 0,
+      totalDocsInVault: headline.totalDocsInVault ?? 0,
+      metricsTrailLength: metricsTrail.length,
+    },
+  };
 }
 
 // =============================================================================
@@ -683,5 +749,113 @@ export async function getInvestorAccountsSnapshotPackForOrg(
     expenses,
     documents,
   });
+}
+
+// =============================================================================
+// Accounts pack runs — DB helpers
+// =============================================================================
+
+export async function recordAccountsPackSuccessRun(params: {
+  supabase: SupabaseLikeClient;
+  orgId: string;
+  pack: AccountsPack;
+}): Promise<void> {
+  const { supabase, orgId, pack } = params;
+  const derived = deriveMetricsForPack(pack);
+
+  const { error } = await supabase.from("accounts_pack_runs").insert({
+    org_id: orgId,
+    type: pack.type,
+    period_start: derived.period.start,
+    period_end: derived.period.end,
+    status: "success",
+    metrics: derived.metrics,
+  });
+
+  if (error) {
+    // This should never break the API response — best-effort only.
+    // eslint-disable-next-line no-console
+    console.error("[accounts_pack_runs] failed to insert success run", error);
+  }
+}
+
+export async function recordAccountsPackFailureRun(params: {
+  supabase: SupabaseLikeClient;
+  orgId: string;
+  type: AccountsPackType;
+  error: unknown;
+}): Promise<void> {
+  const { supabase, orgId, type, error } = params;
+
+  const errorPayload =
+    error instanceof Error
+      ? { message: error.message, name: error.name }
+      : { message: String(error) };
+
+  const { error: insertError } = await supabase.from("accounts_pack_runs").insert({
+    org_id: orgId,
+    type,
+    period_start: null,
+    period_end: null,
+    status: "failure",
+    metrics: {
+      error: errorPayload,
+    },
+  });
+
+  if (insertError) {
+    // eslint-disable-next-line no-console
+    console.error("[accounts_pack_runs] failed to insert failure run", insertError);
+  }
+}
+
+export async function getLatestPackRunForOrg(params: {
+  supabase: SupabaseLikeClient;
+  orgId: string;
+  type: AccountsPackType;
+}): Promise<AccountsPackRun | null> {
+  const { supabase, orgId, type } = params;
+
+  const { data, error } = await supabase
+    .from("accounts_pack_runs")
+    .select(
+      "id, org_id, type, period_start, period_end, status, metrics, created_at",
+    )
+    .eq("org_id", orgId)
+    .eq("type", type)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (error) {
+    // eslint-disable-next-line no-console
+    console.error("[accounts_pack_runs] failed to fetch latest run", error);
+    return null;
+  }
+
+  if (!data || data.length === 0) {
+    return null;
+  }
+
+  const row = data[0] as {
+    id: string;
+    org_id: string;
+    type: string;
+    period_start: string | null;
+    period_end: string | null;
+    status: string;
+    metrics: Record<string, unknown> | null;
+    created_at: string;
+  };
+
+  return {
+    id: row.id,
+    orgId: row.org_id,
+    type: row.type as AccountsPackType,
+    periodStart: row.period_start,
+    periodEnd: row.period_end,
+    status: row.status as AccountsPackStatus,
+    metrics: row.metrics,
+    createdAt: row.created_at,
+  };
 }
 

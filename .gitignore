@@ -48,3 +48,10 @@ next-env.d.ts
 gcs-key.json
 
 public/generated/*.md
+
+
+# Supabase local env / temp
+supabase/.env
+supabase/.secrets
+supabase/.temp
+supabase/.branches

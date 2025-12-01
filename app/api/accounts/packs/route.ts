@@ -6,9 +6,11 @@ import {
   type AccountsPackType,
   getInvestorAccountsSnapshotPackForOrg,
   getSaaSExpensesPackForOrg,
+  recordAccountsPackFailureRun,
+  recordAccountsPackSuccessRun,
 } from "@/lib/accounts/packs";
-import { getRouteAuthContext } from "@/lib/auth/route-auth";
 import { logActivity } from "@/lib/activity-log";
+import { getRouteAuthContext } from "@/lib/auth/route-auth";
 
 interface AccountsPacksApiRequestBody {
   type?: AccountsPackType;
@@ -43,6 +45,7 @@ function resolvePackType(body: AccountsPacksApiRequestBody): AccountsPackType | 
 
 export async function POST(req: NextRequest) {
   const requestId = crypto.randomUUID();
+  let packTypeForRun: AccountsPackType | null = null;
 
   try {
     const auth = await getRouteAuthContext(req as unknown as Request);
@@ -83,6 +86,7 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
+    packTypeForRun = packType;
 
     const period = body.period && isValidDateRange(body.period) ? body.period : undefined;
 
@@ -96,6 +100,21 @@ export async function POST(req: NextRequest) {
     } else {
       pack = await getInvestorAccountsSnapshotPackForOrg(supabase, {
         orgId,
+      });
+    }
+
+    // Best-effort logging of the successful pack run into accounts_pack_runs.
+    try {
+      await recordAccountsPackSuccessRun({
+        supabase,
+        orgId,
+        pack,
+      });
+    } catch (recordError) {
+      // eslint-disable-next-line no-console
+      console.error("[/api/accounts/packs] failed to record success run", {
+        requestId,
+        recordError,
       });
     }
 
@@ -113,6 +132,16 @@ export async function POST(req: NextRequest) {
     // Best-effort logging into activity_log; swallow errors from logActivity
     try {
       const auth = await getRouteAuthContext(req as unknown as Request);
+
+      if (auth.orgId && auth.supabase && packTypeForRun) {
+        await recordAccountsPackFailureRun({
+          supabase: auth.supabase,
+          orgId: auth.orgId,
+          type: packTypeForRun,
+          error,
+        });
+      }
+
       if (auth.orgId) {
         await logActivity({
           orgId: auth.orgId,

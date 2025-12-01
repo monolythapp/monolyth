@@ -3,7 +3,11 @@
 // Computes metrics for the Insights page from activity_log.
 // Uses direct SQL queries for efficiency.
 
+import { cookies } from "next/headers";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { getAccountsInsightsForOrg, type AccountsInsights } from "@/lib/insights/accounts";
+import { getContractsInsightsForOrg, type ContractsInsights } from "@/lib/insights/contracts";
+import { getDecksInsightsForOrg, type DecksInsights } from "@/lib/insights/decks";
 
 export interface InsightsMetrics {
   docsCreated7d: number;
@@ -26,14 +30,52 @@ export interface DailyCount {
 export interface InsightsData {
   metrics: InsightsMetrics;
   dailyCounts: DailyCount[];
+  accounts?: AccountsInsights | null;
+  contracts?: ContractsInsights | null;
+  decks?: DecksInsights | null;
 }
 
 /**
  * Compute Insights v1 metrics for the last 7 days.
  * RLS policies ensure org scoping.
  */
+/**
+ * Get org_id from user session (server component context)
+ */
+async function getOrgIdFromSession(supabase: ReturnType<typeof createServerSupabaseClient>): Promise<string | null> {
+  try {
+    const cookieStore = await cookies();
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const projectRef = supabaseUrl?.match(/https?:\/\/([^.]+)\./)?.[1] || "default";
+    const authCookieName = `sb-${projectRef}-auth-token`;
+
+    const authCookie = cookieStore.get(authCookieName);
+    if (!authCookie?.value) {
+      return null;
+    }
+
+    const session = JSON.parse(authCookie.value);
+    const userId = session?.user?.id;
+    if (!userId) {
+      return null;
+    }
+
+    // Get user's first org membership
+    const { data: memberships } = await supabase
+      .from("member")
+      .select("org_id")
+      .eq("user_id", userId)
+      .limit(1);
+
+    return memberships?.[0]?.org_id ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function computeInsightsMetrics(): Promise<InsightsData> {
   const supabase = createServerSupabaseClient();
+  const orgId = await getOrgIdFromSession(supabase);
   const now = new Date();
   const sevenDaysAgo = new Date(now);
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -84,21 +126,62 @@ export async function computeInsightsMetrics(): Promise<InsightsData> {
   // Helper to get connector syncs by provider
   // Note: provider might be in context/payload, not a direct column
   async function getConnectorSyncsByProvider(): Promise<Record<string, number>> {
-    const { data, error } = await supabase
+    let data: unknown[] | null = null;
+
+    // First attempt: context + provider column.
+    const primary = await supabase
       .from("activity_log")
       .select("context, provider")
       .ilike("type", "connector_sync_completed%")
       .gte("created_at", from)
       .lte("created_at", to);
 
-    if (error) {
-      // If provider column doesn't exist, that's OK - return empty breakdown
-      console.warn("[activity-insights] getConnectorSyncsByProvider warning", error);
+    if (!primary.error) {
+      data = (primary.data ?? []) as unknown[];
+    } else {
+      const message =
+        typeof primary.error.message === "string" ? primary.error.message : "";
+
+      // If the error is specifically about the provider column not existing,
+      // fall back to selecting only context and skip the warning noise.
+      if (
+        message.includes("column") &&
+        message.toLowerCase().includes("provider")
+      ) {
+        const fallback = await supabase
+          .from("activity_log")
+          .select("context")
+          .ilike("type", "connector_sync_completed%")
+          .gte("created_at", from)
+          .lte("created_at", to);
+        if (fallback.error) {
+          // eslint-disable-next-line no-console
+          console.warn(
+            "[activity-insights] getConnectorSyncsByProvider fallback error",
+            fallback.error,
+          );
+          return {};
+        }
+
+        data = (fallback.data ?? []) as unknown[];
+      } else {
+        // Unexpected error — keep the warning so we can see it.
+        // eslint-disable-next-line no-console
+        console.warn(
+          "[activity-insights] getConnectorSyncsByProvider error",
+          primary.error,
+        );
+        return {};
+      }
+    }
+
+    if (!data) {
       return {};
     }
 
     const counts: Record<string, number> = {};
-    (data ?? []).forEach((row: any) => {
+    (data as Array<{ context?: unknown; provider?: string | null }>).forEach(
+      (row) => {
       // Try provider field first, then context.provider, then context
       let provider = row.provider;
       if (!provider && row.context) {
@@ -181,6 +264,9 @@ export async function computeInsightsMetrics(): Promise<InsightsData> {
     signaturesCompleted,
     activeDocs,
     dailyCounts,
+    accountsInsights,
+    contractsInsights,
+    decksInsights,
   ] = await Promise.all([
     // Docs created: count doc_generated, doc_created, doc_saved_to_vault (first occurrence per doc)
     countUniqueByTypePattern("doc_%", "document_id"),
@@ -230,6 +316,37 @@ export async function computeInsightsMetrics(): Promise<InsightsData> {
     })(),
     // Daily counts
     getDailyCounts(),
+    // Accounts packs insights from accounts_pack_runs
+    (async () => {
+      try {
+        return await getAccountsInsightsForOrg({ supabase, orgId });
+      } catch (err) {
+        console.error("[activity-insights] getAccountsInsightsForOrg error", err);
+        // Return empty insights object instead of null so UI can show empty states
+        return {
+          monthly_saas: { total: null, top_vendors_count: null, last_run_at: null },
+          investor_snapshot: { runway_months: null, cash: null, burn: null, last_run_at: null },
+        };
+      }
+    })(),
+    // Contracts KPIs from activity_log (last 30 days)
+    (async () => {
+      try {
+        return await getContractsInsightsForOrg({ supabase });
+      } catch (err) {
+        console.error("[activity-insights] getContractsInsightsForOrg error", err);
+        return null;
+      }
+    })(),
+    // Decks KPIs + recent decks
+    (async () => {
+      try {
+        return await getDecksInsightsForOrg({ supabase });
+      } catch (err) {
+        console.error("[activity-insights] getDecksInsightsForOrg error", err);
+        return null;
+      }
+    })(),
   ]);
 
   return {
@@ -242,6 +359,9 @@ export async function computeInsightsMetrics(): Promise<InsightsData> {
       activeDocs7d: activeDocs,
     },
     dailyCounts,
+    accounts: accountsInsights,
+    contracts: contractsInsights,
+    decks: decksInsights,
   };
 }
 

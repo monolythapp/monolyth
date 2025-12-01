@@ -27,10 +27,14 @@ export interface DeckTemplate {
 export default async function BuilderPage({
   searchParams,
 }: {
-  searchParams: Promise<{ docId?: string }>;
+  searchParams: Promise<{ docId?: string; tab?: string }>;
 }) {
   const params = await searchParams;
   const docId = params?.docId;
+  const tab = params?.tab;
+
+  // Validate tab parameter
+  const validTab = tab === "contracts" || tab === "decks" || tab === "accounts" ? tab : undefined;
 
   const supabase = createServerSupabaseClient();
 
@@ -82,7 +86,7 @@ export default async function BuilderPage({
 
   return (
     <div className="h-full flex flex-col">
-      <BuilderClient templates={templates} clauses={clauses} deckTemplates={deckTemplates} initialDocId={docId} />
+      <BuilderClient templates={templates} clauses={clauses} deckTemplates={deckTemplates} initialDocId={docId} initialTab={validTab} />
     </div>
   );
 }

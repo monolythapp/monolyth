@@ -136,6 +136,7 @@ interface BuilderClientProps {
   clauses: ClauseOption[];
   deckTemplates?: DeckTemplate[];
   initialDocId?: string;
+  initialTab?: "contracts" | "decks" | "accounts";
 }
 
 // Map database categories to bolt design categories
@@ -201,14 +202,14 @@ function groupTemplatesByCategory(templates: TemplateOption[]) {
   return Object.entries(grouped).filter(([_, items]) => items.length > 0);
 }
 
-export function BuilderClient({ templates, clauses, deckTemplates = [], initialDocId }: BuilderClientProps) {
+export function BuilderClient({ templates, clauses, deckTemplates = [], initialDocId, initialTab }: BuilderClientProps) {
   const { toast } = useToast();
   const router = useRouter();
   const safeTemplates = Array.isArray(templates) ? templates : [];
   const safeClauses = Array.isArray(clauses) ? clauses : [];
   const safeDeckTemplates = Array.isArray(deckTemplates) ? deckTemplates : [];
 
-  const [activeBuilder, setActiveBuilder] = useState<"contracts" | "decks" | "accounts">("contracts");
+  const [activeBuilder, setActiveBuilder] = useState<"contracts" | "decks" | "accounts">(initialTab ?? "contracts");
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   const [selectedClauseIds, setSelectedClauseIds] = useState<string[]>([]);
   const [selectedDeckTemplateId, setSelectedDeckTemplateId] = useState<string>("");
